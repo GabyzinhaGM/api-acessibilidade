@@ -1,6 +1,7 @@
 package com.gaby.api_acessibilidade.service
 
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
+import com.gaby.api_acessibilidade.dto.AplicacaoPatchRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
 import com.gaby.api_acessibilidade.entity.Aplicacao
 import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
@@ -70,6 +71,32 @@ class AplicacaoService(
                 tipo = request.tipo,
                 nivelAcessibilidade = request.nivelAcessibilidade,
                 observacoes = request.observacoes
+        )
+
+        val salva = repository.save(aplicacaoAtualizada)
+
+        return AplicacaoResponse(
+                id = salva.id!!,
+                nome = salva.nome,
+                link = salva.link,
+                tipo = salva.tipo,
+                nivelAcessibilidade = salva.nivelAcessibilidade,
+                observacoes = salva.observacoes
+        )
+    }
+
+
+    fun atualizarParcialmente(id: Long, request: AplicacaoPatchRequest): AplicacaoResponse {
+        val aplicacaoExistente = repository.findById(id)
+                .orElseThrow { RecursoNaoEncontradoException("Aplicação não encontrada") }
+
+        val aplicacaoAtualizada = Aplicacao(
+                id = aplicacaoExistente.id,
+                nome = request.nome ?: aplicacaoExistente.nome,
+                link = request.link ?: aplicacaoExistente.link,
+                tipo = request.tipo ?: aplicacaoExistente.tipo,
+                nivelAcessibilidade = request.nivelAcessibilidade ?: aplicacaoExistente.nivelAcessibilidade,
+                observacoes = request.observacoes ?: aplicacaoExistente.observacoes
         )
 
         val salva = repository.save(aplicacaoAtualizada)

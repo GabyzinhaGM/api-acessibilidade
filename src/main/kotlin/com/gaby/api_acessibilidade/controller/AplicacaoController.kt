@@ -1,5 +1,6 @@
 package com.gaby.api_acessibilidade.controller
 
+import com.gaby.api_acessibilidade.dto.AplicacaoPatchRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
 import com.gaby.api_acessibilidade.service.AplicacaoService
@@ -64,6 +65,22 @@ class AplicacaoController(
             @Valid @RequestBody request: AplicacaoRequest
     ): AplicacaoResponse {
         return service.atualizar(id, request)
+    }
+
+    @Operation(summary = "Atualizar parcialmente uma aplicação", description = "Atualiza apenas os campos informados de uma aplicação cadastrada")
+    @ApiResponses(
+            value = [
+                ApiResponse(responseCode = "200", description = "Aplicação atualizada parcialmente com sucesso"),
+                ApiResponse(responseCode = "400", description = "Dados inválidos"),
+                ApiResponse(responseCode = "404", description = "Aplicação não encontrada")
+            ]
+    )
+    @PatchMapping("/{id}")
+    fun atualizarParcialmente(
+            @PathVariable id: Long,
+            @Valid @RequestBody request: AplicacaoPatchRequest
+    ): AplicacaoResponse {
+        return service.atualizarParcialmente(id, request)
     }
 
     @Operation(summary = "Remover aplicação", description = "Remove uma aplicação cadastrada")
