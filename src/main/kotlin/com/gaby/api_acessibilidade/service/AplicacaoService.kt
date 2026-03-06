@@ -3,10 +3,13 @@ package com.gaby.api_acessibilidade.service
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoPatchRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
+import com.gaby.api_acessibilidade.dto.PaginaResponse
 import com.gaby.api_acessibilidade.entity.Aplicacao
+import com.gaby.api_acessibilidade.entity.enum.TipoAplicacao
 import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
 import com.gaby.api_acessibilidade.repository.AplicacaoRepository
 import org.springframework.stereotype.Service
+import org.springframework.data.domain.PageRequest
 
 @Service
 class AplicacaoService(
@@ -34,17 +37,49 @@ class AplicacaoService(
         )
     }
 
-    fun listar(): List<AplicacaoResponse> =
-            repository.findAll().map {
-                AplicacaoResponse(
-                        id = it.id!!,
-                        nome = it.nome,
-                        link = it.link,
-                        tipo = it.tipo,
-                        nivelAcessibilidade = it.nivelAcessibilidade,
-                        observacoes = it.observacoes
-                )
-            }
+    fun listar(
+            tipo: TipoAplicacao?,
+            nivelAcessibilidade: Int?,
+            pagina: Int,
+            tamanho: Int
+    ): PaginaResponse<AplicacaoResponse> {
+
+        val pageable = PageRequest.of(pagina, tamanho)
+
+        val resultado = when {
+            tipo != null && nivelAcessibilidade != null ->
+                repository.findByTipoAndNivelAcessibilidade(tipo, nivelAcessibilidade, pageable)
+
+            tipo != null ->
+                repository.findByTipo(tipo, pageable)
+
+            nivelAcessibilidade != null ->
+                repository.findByNivelAcessibilidade(nivelAcessibilidade, pageable)
+
+            else ->
+                repository.findAll(pageable)
+        }
+
+        val conteudo = resultado.content.map {
+            AplicacaoResponse(
+                    id = it.id!!,
+                    nome = it.nome,
+                    link = it.link,
+                    tipo = it.tipo,
+                    nivelAcessibilidade = it.nivelAcessibilidade,
+                    observacoes = it.observacoes
+            )
+        }
+
+        return PaginaResponse(
+                conteudo = conteudo,
+                pagina = resultado.number,
+                tamanho = resultado.size,
+                totalElementos = resultado.totalElements,
+                totalPaginas = resultado.totalPages,
+                ultima = resultado.isLast
+        )
+    }
 
     fun buscarPorId(id: Long): AplicacaoResponse {
         val aplicacao = repository.findById(id)

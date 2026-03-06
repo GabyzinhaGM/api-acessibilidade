@@ -3,11 +3,14 @@ package com.gaby.api_acessibilidade.controller
 import com.gaby.api_acessibilidade.dto.AplicacaoPatchRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
+import com.gaby.api_acessibilidade.dto.PaginaResponse
+import com.gaby.api_acessibilidade.entity.enum.TipoAplicacao
 import com.gaby.api_acessibilidade.service.AplicacaoService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import io.swagger.v3.oas.annotations.Parameter
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
@@ -32,11 +35,31 @@ class AplicacaoController(
         return service.criar(request)
     }
 
-    @Operation(summary = "Listar aplicações", description = "Lista todas as aplicações cadastradas")
+    @Operation(
+            summary = "Listar aplicações",
+            description = "Lista aplicações cadastradas com suporte a paginação e filtros por tipo e nível de acessibilidade"
+    )
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping
-    fun listar(): List<AplicacaoResponse> {
-        return service.listar()
+    fun listar(
+            @Parameter(description = "Tipo da aplicação para filtro", example = "WEB")
+            @RequestParam(required = false) tipo: TipoAplicacao?,
+
+            @Parameter(description = "Nível de acessibilidade para filtro", example = "4")
+            @RequestParam(required = false) nivelAcessibilidade: Int?,
+
+            @Parameter(description = "Número da página", example = "0")
+            @RequestParam(defaultValue = "0") page: Int,
+
+            @Parameter(description = "Quantidade de elementos por página", example = "10")
+            @RequestParam(defaultValue = "10") size: Int
+    ): PaginaResponse<AplicacaoResponse> {
+        return service.listar(
+                tipo = tipo,
+                nivelAcessibilidade = nivelAcessibilidade,
+                pagina = page,
+                tamanho = size
+        )
     }
 
     @Operation(summary = "Buscar aplicação por ID", description = "Busca uma aplicação cadastrada pelo identificador")
