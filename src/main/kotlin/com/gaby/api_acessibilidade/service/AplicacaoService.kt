@@ -12,7 +12,6 @@ class AplicacaoService(
 ) {
 
     fun criar(request: AplicacaoRequest): AplicacaoResponse {
-
         val aplicacao = Aplicacao(
                 nome = request.nome,
                 link = request.link,
@@ -46,7 +45,6 @@ class AplicacaoService(
             }
 
     fun buscarPorId(id: Long): AplicacaoResponse {
-
         val aplicacao = repository.findById(id)
                 .orElseThrow { RuntimeException("Aplicação não encontrada") }
 
@@ -60,7 +58,35 @@ class AplicacaoService(
         )
     }
 
+    fun atualizar(id: Long, request: AplicacaoRequest): AplicacaoResponse {
+        val aplicacaoExistente = repository.findById(id)
+                .orElseThrow { RuntimeException("Aplicação não encontrada") }
+
+        val aplicacaoAtualizada = Aplicacao(
+                id = aplicacaoExistente.id,
+                nome = request.nome,
+                link = request.link,
+                tipo = request.tipo,
+                nivelAcessibilidade = request.nivelAcessibilidade,
+                observacoes = request.observacoes
+        )
+
+        val salva = repository.save(aplicacaoAtualizada)
+
+        return AplicacaoResponse(
+                id = salva.id!!,
+                nome = salva.nome,
+                link = salva.link,
+                tipo = salva.tipo,
+                nivelAcessibilidade = salva.nivelAcessibilidade,
+                observacoes = salva.observacoes
+        )
+    }
+
     fun deletar(id: Long) {
-        repository.deleteById(id)
+        val aplicacao = repository.findById(id)
+                .orElseThrow { RuntimeException("Aplicação não encontrada") }
+
+        repository.delete(aplicacao)
     }
 }
