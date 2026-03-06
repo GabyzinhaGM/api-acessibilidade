@@ -3,6 +3,7 @@ package com.gaby.api_acessibilidade.service
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
 import com.gaby.api_acessibilidade.entity.Aplicacao
+import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
 import com.gaby.api_acessibilidade.repository.AplicacaoRepository
 import org.springframework.stereotype.Service
 
@@ -46,7 +47,7 @@ class AplicacaoService(
 
     fun buscarPorId(id: Long): AplicacaoResponse {
         val aplicacao = repository.findById(id)
-                .orElseThrow { RuntimeException("Aplicação não encontrada") }
+                .orElseThrow { RecursoNaoEncontradoException("Aplicação não encontrada") }
 
         return AplicacaoResponse(
                 id = aplicacao.id!!,
@@ -60,7 +61,7 @@ class AplicacaoService(
 
     fun atualizar(id: Long, request: AplicacaoRequest): AplicacaoResponse {
         val aplicacaoExistente = repository.findById(id)
-                .orElseThrow { RuntimeException("Aplicação não encontrada") }
+                .orElseThrow { RecursoNaoEncontradoException("Aplicação não encontrada") }
 
         val aplicacaoAtualizada = Aplicacao(
                 id = aplicacaoExistente.id,
@@ -85,7 +86,7 @@ class AplicacaoService(
 
     fun deletar(id: Long) {
         val aplicacao = repository.findById(id)
-                .orElseThrow { RuntimeException("Aplicação não encontrada") }
+                .orElseThrow { RecursoNaoEncontradoException("Aplicação não encontrada") }
 
         repository.delete(aplicacao)
     }
