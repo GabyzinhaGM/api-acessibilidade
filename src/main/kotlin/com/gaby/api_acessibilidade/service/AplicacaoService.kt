@@ -7,6 +7,7 @@ import com.gaby.api_acessibilidade.dto.PaginaResponse
 import com.gaby.api_acessibilidade.entity.Aplicacao
 import com.gaby.api_acessibilidade.entity.enum.TipoAplicacao
 import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
+import com.gaby.api_acessibilidade.exception.ParametroInvalidoException
 import com.gaby.api_acessibilidade.repository.AplicacaoRepository
 import org.springframework.stereotype.Service
 import org.springframework.data.domain.PageRequest
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Sort
 class AplicacaoService(
         private val repository: AplicacaoRepository
 ) {
+    private val camposOrdenacaoPermitidos = setOf("id", "nome", "link", "tipo", "nivelAcessibilidade")
 
     fun criar(request: AplicacaoRequest): AplicacaoResponse {
         val aplicacao = Aplicacao(
@@ -46,6 +48,12 @@ class AplicacaoService(
             ordenarPor: String,
             direcao: String
     ): PaginaResponse<AplicacaoResponse> {
+
+        if (ordenarPor !in camposOrdenacaoPermitidos) {
+            throw ParametroInvalidoException(
+                    "Campo de ordenação inválido. Valores permitidos: ${camposOrdenacaoPermitidos.joinToString(", ")}"
+            )
+        }
 
         val sortDirection = if (direcao.equals("desc", ignoreCase = true)) {
             Sort.Direction.DESC

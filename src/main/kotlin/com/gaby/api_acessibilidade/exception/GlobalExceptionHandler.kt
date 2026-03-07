@@ -1,6 +1,7 @@
 package com.gaby.api_acessibilidade.exception
 
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.ConstraintViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -40,6 +41,41 @@ class GlobalExceptionHandler {
                 status = HttpStatus.BAD_REQUEST.value(),
                 erro = HttpStatus.BAD_REQUEST.reasonPhrase,
                 mensagem = mensagem,
+                caminho = request.requestURI
+        )
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(erro)
+    }
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun tratarConstraintViolation(
+            ex: ConstraintViolationException,
+            request: HttpServletRequest
+    ): ResponseEntity<ErroResponse> {
+        val mensagem = ex.constraintViolations
+                .joinToString("; ") { it.message }
+
+        val erro = ErroResponse(
+                timestamp = java.time.LocalDateTime.now(),
+                status = HttpStatus.BAD_REQUEST.value(),
+                erro = HttpStatus.BAD_REQUEST.reasonPhrase,
+                mensagem = mensagem,
+                caminho = request.requestURI
+        )
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(erro)
+    }
+
+    @ExceptionHandler(ParametroInvalidoException::class)
+    fun tratarParametroInvalido(
+            ex: ParametroInvalidoException,
+            request: HttpServletRequest
+    ): ResponseEntity<ErroResponse> {
+        val erro = ErroResponse(
+                timestamp = java.time.LocalDateTime.now(),
+                status = HttpStatus.BAD_REQUEST.value(),
+                erro = HttpStatus.BAD_REQUEST.reasonPhrase,
+                mensagem = ex.message ?: "Parâmetro inválido",
                 caminho = request.requestURI
         )
 

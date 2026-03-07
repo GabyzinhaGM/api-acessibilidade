@@ -12,12 +12,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.Parameter
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Pattern
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
+import org.springframework.validation.annotation.Validated
 
 @RestController
 @RequestMapping("/aplicacoes")
 @Tag(name = "Aplicações", description = "Endpoints para gerenciamento de aplicações acessíveis")
+@Validated
 class AplicacaoController(
         private val service: AplicacaoService
 ) {
@@ -46,19 +51,34 @@ class AplicacaoController(
             @RequestParam(required = false) tipo: TipoAplicacao?,
 
             @Parameter(description = "Nível de acessibilidade para filtro", example = "4")
-            @RequestParam(required = false) nivelAcessibilidade: Int?,
+            @RequestParam(required = false)
+            @Min(value = 1, message = "O nível de acessibilidade deve ser no mínimo 1")
+            @Max(value = 5, message = "O nível de acessibilidade deve ser no máximo 5")
+            nivelAcessibilidade: Int?,
 
             @Parameter(description = "Número da página", example = "0")
-            @RequestParam(defaultValue = "0") page: Int,
+            @RequestParam(defaultValue = "0")
+            @Min(value = 0, message = "A página deve ser maior ou igual a 0")
+            page: Int,
 
             @Parameter(description = "Quantidade de elementos por página", example = "10")
-            @RequestParam(defaultValue = "10") size: Int,
+            @RequestParam(defaultValue = "10")
+            @Min(value = 1, message = "O tamanho da página deve ser no mínimo 1")
+            @Max(value = 50, message = "O tamanho da página deve ser no máximo 50")
+            size: Int,
 
             @Parameter(description = "Campo para ordenação", example = "nome")
-            @RequestParam(defaultValue = "id") sort: String,
+            @RequestParam(defaultValue = "id")
+            sort: String,
 
             @Parameter(description = "Direção da ordenação: asc ou desc", example = "asc")
-            @RequestParam(defaultValue = "asc") direction: String
+            @RequestParam(defaultValue = "asc")
+            @Pattern(
+                    regexp = "^(asc|desc)$",
+                    flags = [Pattern.Flag.CASE_INSENSITIVE],
+                    message = "A direção deve ser 'asc' ou 'desc'"
+            )
+            direction: String
     ): PaginaResponse<AplicacaoResponse> {
         return service.listar(
                 tipo = tipo,
