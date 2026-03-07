@@ -5,19 +5,22 @@ import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
 import com.gaby.api_acessibilidade.dto.PaginaResponse
 import com.gaby.api_acessibilidade.entity.enum.TipoAplicacao
+import com.gaby.api_acessibilidade.exception.ErroResponse
 import com.gaby.api_acessibilidade.service.AplicacaoService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
-import io.swagger.v3.oas.annotations.Parameter
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Pattern
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.*
 import org.springframework.validation.annotation.Validated
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/aplicacoes")
@@ -27,11 +30,23 @@ class AplicacaoController(
         private val service: AplicacaoService
 ) {
 
-    @Operation(summary = "Cadastrar aplicação", description = "Cadastra uma nova aplicação com informações de acessibilidade")
+    @Operation(
+            summary = "Cadastrar aplicação",
+            description = "Cadastra uma nova aplicação com informações de acessibilidade"
+    )
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "201", description = "Aplicação cadastrada com sucesso"),
-                ApiResponse(responseCode = "400", description = "Dados inválidos")
+                ApiResponse(
+                        responseCode = "400",
+                        description = "Dados inválidos",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
             ]
     )
     @PostMapping
@@ -44,7 +59,21 @@ class AplicacaoController(
             summary = "Listar aplicações",
             description = "Lista aplicações cadastradas com suporte a paginação, filtros por tipo e nível de acessibilidade, e ordenação"
     )
-    @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
+    @ApiResponses(
+            value = [
+                ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
+                ApiResponse(
+                        responseCode = "400",
+                        description = "Parâmetros inválidos",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
+            ]
+    )
     @GetMapping
     fun listar(
             @Parameter(description = "Tipo da aplicação para filtro", example = "WEB")
@@ -90,11 +119,23 @@ class AplicacaoController(
         )
     }
 
-    @Operation(summary = "Buscar aplicação por ID", description = "Busca uma aplicação cadastrada pelo identificador")
+    @Operation(
+            summary = "Buscar aplicação por ID",
+            description = "Busca uma aplicação cadastrada pelo identificador"
+    )
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "200", description = "Aplicação encontrada"),
-                ApiResponse(responseCode = "404", description = "Aplicação não encontrada")
+                ApiResponse(
+                        responseCode = "404",
+                        description = "Aplicação não encontrada",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
             ]
     )
     @GetMapping("/{id}")
@@ -102,12 +143,28 @@ class AplicacaoController(
         return service.buscarPorId(id)
     }
 
-    @Operation(summary = "Atualizar aplicação", description = "Atualiza os dados de uma aplicação cadastrada")
+    @Operation(
+            summary = "Atualizar aplicação",
+            description = "Atualiza completamente os dados de uma aplicação cadastrada"
+    )
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "200", description = "Aplicação atualizada com sucesso"),
-                ApiResponse(responseCode = "400", description = "Dados inválidos"),
-                ApiResponse(responseCode = "404", description = "Aplicação não encontrada")
+                ApiResponse(
+                        responseCode = "400",
+                        description = "Dados inválidos",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "404",
+                        description = "Aplicação não encontrada",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
             ]
     )
     @PutMapping("/{id}")
@@ -118,12 +175,28 @@ class AplicacaoController(
         return service.atualizar(id, request)
     }
 
-    @Operation(summary = "Atualizar parcialmente uma aplicação", description = "Atualiza apenas os campos informados de uma aplicação cadastrada")
+    @Operation(
+            summary = "Atualizar parcialmente uma aplicação",
+            description = "Atualiza apenas os campos informados de uma aplicação cadastrada"
+    )
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "200", description = "Aplicação atualizada parcialmente com sucesso"),
-                ApiResponse(responseCode = "400", description = "Dados inválidos"),
-                ApiResponse(responseCode = "404", description = "Aplicação não encontrada")
+                ApiResponse(
+                        responseCode = "400",
+                        description = "Dados inválidos",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "404",
+                        description = "Aplicação não encontrada",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
             ]
     )
     @PatchMapping("/{id}")
@@ -134,11 +207,23 @@ class AplicacaoController(
         return service.atualizarParcialmente(id, request)
     }
 
-    @Operation(summary = "Remover aplicação", description = "Remove uma aplicação cadastrada")
+    @Operation(
+            summary = "Remover aplicação",
+            description = "Remove uma aplicação cadastrada"
+    )
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "204", description = "Aplicação removida com sucesso"),
-                ApiResponse(responseCode = "404", description = "Aplicação não encontrada")
+                ApiResponse(
+                        responseCode = "404",
+                        description = "Aplicação não encontrada",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                ),
+                ApiResponse(
+                        responseCode = "500",
+                        description = "Erro interno no servidor",
+                        content = [Content(schema = Schema(implementation = ErroResponse::class))]
+                )
             ]
     )
     @DeleteMapping("/{id}")
