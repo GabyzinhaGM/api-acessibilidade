@@ -37,7 +37,7 @@ class AplicacaoController(
 
     @Operation(
             summary = "Listar aplicações",
-            description = "Lista aplicações cadastradas com suporte a paginação e filtros por tipo e nível de acessibilidade"
+            description = "Lista aplicações cadastradas com suporte a paginação, filtros por tipo e nível de acessibilidade, e ordenação"
     )
     @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     @GetMapping
@@ -52,13 +52,21 @@ class AplicacaoController(
             @RequestParam(defaultValue = "0") page: Int,
 
             @Parameter(description = "Quantidade de elementos por página", example = "10")
-            @RequestParam(defaultValue = "10") size: Int
+            @RequestParam(defaultValue = "10") size: Int,
+
+            @Parameter(description = "Campo para ordenação", example = "nome")
+            @RequestParam(defaultValue = "id") sort: String,
+
+            @Parameter(description = "Direção da ordenação: asc ou desc", example = "asc")
+            @RequestParam(defaultValue = "asc") direction: String
     ): PaginaResponse<AplicacaoResponse> {
         return service.listar(
                 tipo = tipo,
                 nivelAcessibilidade = nivelAcessibilidade,
                 pagina = page,
-                tamanho = size
+                tamanho = size,
+                ordenarPor = sort,
+                direcao = direction
         )
     }
 

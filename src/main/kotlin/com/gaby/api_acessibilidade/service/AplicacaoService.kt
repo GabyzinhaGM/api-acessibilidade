@@ -10,6 +10,7 @@ import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
 import com.gaby.api_acessibilidade.repository.AplicacaoRepository
 import org.springframework.stereotype.Service
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 
 @Service
 class AplicacaoService(
@@ -41,10 +42,22 @@ class AplicacaoService(
             tipo: TipoAplicacao?,
             nivelAcessibilidade: Int?,
             pagina: Int,
-            tamanho: Int
+            tamanho: Int,
+            ordenarPor: String,
+            direcao: String
     ): PaginaResponse<AplicacaoResponse> {
 
-        val pageable = PageRequest.of(pagina, tamanho)
+        val sortDirection = if (direcao.equals("desc", ignoreCase = true)) {
+            Sort.Direction.DESC
+        } else {
+            Sort.Direction.ASC
+        }
+
+        val pageable = PageRequest.of(
+                pagina,
+                tamanho,
+                Sort.by(sortDirection, ordenarPor)
+        )
 
         val resultado = when {
             tipo != null && nivelAcessibilidade != null ->
