@@ -19,6 +19,7 @@ import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
@@ -215,7 +216,13 @@ class AplicacaoServiceTest {
                 observacoes = "Muito boa"
         )
 
-        val pageRequest = PageRequest.of(0, 10)
+        val sortDirection = "asc"
+        val ordenarPor = "id"
+
+        val pageRequest = PageRequest.of(0, 10,
+                Sort.by(Sort.Direction.ASC, ordenarPor)
+        )
+
         val page = PageImpl(listOf(aplicacao), pageRequest, 1)
 
         `when`(repository.findAll(pageRequest)).thenReturn(page)
@@ -225,8 +232,8 @@ class AplicacaoServiceTest {
                 nivelAcessibilidade = null,
                 pagina = 0,
                 tamanho = 10,
-                ordenarPor = "id",
-                direcao = "asc"
+                ordenarPor = ordenarPor,
+                direcao = sortDirection
         )
 
         assertEquals(1, response.conteudo.size)
