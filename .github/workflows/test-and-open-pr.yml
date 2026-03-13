@@ -1,0 +1,256 @@
+name: Testes, versionamento semântico e PR automático
+
+on:
+  push:
+    branches:
+      - develop
+      - 'feat/**'
+      - 'fix/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-route:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Garantir permissão no gradlew
+        run: chmod +x ./gradlew
+
+      - name: Rodar testes
+        run: ./gradlew clean test jacocoTestReport
+
+      - name: Identificar branch de origem
+        id: source
+        shell: bash
+        run: echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Verificar PR existente de feat/fix para develop
+        if: startsWith(steps.source.outputs.branch, 'feat/') || startsWith(steps.source.outputs.branch, 'fix/')
+        id: feature_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_BRANCH: ${{ steps.source.outputs.branch }}
+        shell: bash
+        run: |
+          PR_NUMBER=$(gh pr list \
+            --head "$SOURCE_BRANCH" \
+            --base "develop" \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abrir PR de feat/fix para develop
+        if: (startsWith(steps.source.outputs.branch, 'feat/') || startsWith(steps.source.outputs.branch, 'fix/')) && steps.feature_pr.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_BRANCH: ${{ steps.source.outputs.branch }}
+        shell: bash
+        run: |
+          gh pr create \
+            --base develop \
+            --head "$SOURCE_BRANCH" \
+            --title "PR automático: $SOURCE_BRANCH -> develop" \
+            --body "$(cat <<EOF
+          Este PR foi aberto automaticamente após a execução bem-sucedida dos testes.
+
+          ### Origem
+          \`$SOURCE_BRANCH\`
+
+          ### Destino
+          \`develop\`
+
+          ### Validações executadas
+          - Testes automatizados
+          - Relatório JaCoCo
+
+          Workflow: \`${{ github.workflow }}\`
+          Commit: \`${{ github.sha }}\`
+          EOF
+          )"
+
+      - name: Buscar histórico completo e tags
+        if: steps.source.outputs.branch == 'develop'
+        shell: bash
+        run: |
+          git fetch --all --tags --prune
+
+      - name: Descobrir última versão
+        if: steps.source.outputs.branch == 'develop'
+        id: last_version
+        shell: bash
+        run: |
+          LAST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1 || true)
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+            echo "range=HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
+            echo "version=${LAST_TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "range=${LAST_TAG}..HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Calcular tipo de bump com Conventional Commits
+        if: steps.source.outputs.branch == 'develop'
+        id: bump
+        shell: bash
+        run: |
+          RANGE="${{ steps.last_version.outputs.range }}"
+          COMMITS=$(git log --pretty=format:%B $RANGE)
+
+          echo "Mensagens analisadas:"
+          echo "$COMMITS"
+
+          BUMP="none"
+
+          if echo "$COMMITS" | grep -Eq 'BREAKING CHANGE:|^[a-zA-Z]+(\(.+\))?!:'; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -Eq '^feat(\(.+\))?:' ; then
+            BUMP="minor"
+          elif echo "$COMMITS" | grep -Eq '^fix(\(.+\))?:' ; then
+            BUMP="patch"
+          fi
+
+          echo "level=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Calcular próxima versão
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        id: next_version
+        shell: bash
+        run: |
+          CURRENT="${{ steps.last_version.outputs.version }}"
+          BUMP="${{ steps.bump.outputs.level }}"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          elif [ "$BUMP" = "patch" ]; then
+            PATCH=$((PATCH + 1))
+          fi
+
+          VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          RELEASE_BRANCH="release/${VERSION}"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=$RELEASE_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Encerrar sem criar release quando não houver bump
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level == 'none'
+        shell: bash
+        run: |
+          echo "Nenhum commit versionável encontrado desde a última release."
+          echo "Nada a publicar."
+
+      - name: Criar tag local da próxima versão
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        shell: bash
+        run: |
+          git tag "${{ steps.next_version.outputs.version }}" || true
+
+      - name: Criar branch release automaticamente
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        env:
+          RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+            echo "A branch $RELEASE_BRANCH já existe no remoto."
+          else
+            git checkout develop
+            git pull origin develop
+            git checkout -b "$RELEASE_BRANCH"
+            git push origin "$RELEASE_BRANCH"
+            echo "Branch $RELEASE_BRANCH criada com sucesso."
+          fi
+
+      - name: Verificar PR existente da release para main
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        id: release_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
+        shell: bash
+        run: |
+          PR_NUMBER=$(gh pr list \
+            --head "$RELEASE_BRANCH" \
+            --base "main" \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abrir PR da release para main
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none' && steps.release_pr.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
+          RELEASE_VERSION: ${{ steps.next_version.outputs.version }}
+          BUMP_LEVEL: ${{ steps.bump.outputs.level }}
+        shell: bash
+        run: |
+          gh pr create \
+            --base main \
+            --head "$RELEASE_BRANCH" \
+            --title "Release ${RELEASE_VERSION}" \
+            --body "$(cat <<EOF
+          PR de release criado automaticamente a partir da branch \`develop\`.
+
+          ### Release
+          \`${RELEASE_VERSION}\`
+
+          ### Tipo de incremento
+          \`${BUMP_LEVEL}\`
+
+          ### Origem
+          \`${RELEASE_BRANCH}\`
+
+          ### Destino
+          \`main\`
+
+          ### Validações executadas
+          - Testes automatizados
+          - Relatório JaCoCo
+
+          Workflow: \`${{ github.workflow }}\`
+          Commit de origem: \`${{ github.sha }}\`
+          EOF
+          )"
