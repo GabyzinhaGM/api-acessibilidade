@@ -1,6 +1,7 @@
 package com.gaby.api_acessibilidade.config
 
 import com.gaby.api_acessibilidade.security.JwtAuthenticationFilter
+import com.gaby.api_acessibilidade.security.JwtService
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -24,12 +25,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableConfigurationProperties(SecurityProperties::class)
 class SecurityConfig(
-        private val securityProperties: SecurityProperties,
-        private val jwtAuthenticationFilter: JwtAuthenticationFilter
+        private val securityProperties: SecurityProperties
 ) {
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(
+            http: HttpSecurity,
+            jwtAuthenticationFilter: JwtAuthenticationFilter
+    ): SecurityFilterChain {
         http {
             csrf {
                 disable()
@@ -75,6 +78,14 @@ class SecurityConfig(
                 .build()
 
         return InMemoryUserDetailsManager(admin)
+    }
+
+    @Bean
+    fun jwtAuthenticationFilter(
+            jwtService: JwtService,
+            userDetailsService: UserDetailsService
+    ): JwtAuthenticationFilter {
+        return JwtAuthenticationFilter(jwtService, userDetailsService)
     }
 
     @Bean
