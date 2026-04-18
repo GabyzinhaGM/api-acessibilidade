@@ -1,18 +1,22 @@
 package com.gaby.api_acessibilidade.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.gaby.api_acessibilidade.config.SecurityConfig
 import com.gaby.api_acessibilidade.dto.AplicacaoPatchRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoRequest
 import com.gaby.api_acessibilidade.dto.AplicacaoResponse
 import com.gaby.api_acessibilidade.dto.PaginaResponse
 import com.gaby.api_acessibilidade.entity.enum.TipoAplicacao
 import com.gaby.api_acessibilidade.exception.RecursoNaoEncontradoException
+import com.gaby.api_acessibilidade.security.JwtService
 import com.gaby.api_acessibilidade.service.AplicacaoService
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -25,6 +29,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @WebMvcTest(AplicacaoController::class)
+@Import(SecurityConfig::class)
 class AplicacaoControllerTest {
 
     @Autowired
@@ -36,8 +41,11 @@ class AplicacaoControllerTest {
     @MockitoBean
     private lateinit var service: AplicacaoService
 
+    @MockitoBean
+    private lateinit var jwtService: JwtService
+
     @Test
-    fun `deve criar aplicacao com sucesso`() {
+    fun `deve criar aplicacao com sucesso quando autenticado`() {
         val request = AplicacaoRequest(
                 nome = "Portal da Prefeitura",
                 link = "https://www.prefeitura.gov.br",
@@ -59,6 +67,7 @@ class AplicacaoControllerTest {
 
         mockMvc.perform(
                 post("/aplicacoes")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         )
@@ -71,7 +80,25 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve retornar 400 ao criar aplicacao com dados invalidos`() {
+    fun `deve retornar proibido ao criar aplicacao sem autenticacao`() {
+        val request = AplicacaoRequest(
+                nome = "Portal da Prefeitura",
+                link = "https://www.prefeitura.gov.br",
+                tipo = TipoAplicacao.WEB,
+                nivelAcessibilidade = 4,
+                observacoes = "Boa navegação por teclado"
+        )
+
+        mockMvc.perform(
+                post("/aplicacoes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        )
+                .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `deve retornar 400 ao criar aplicacao com dados invalidos quando autenticado`() {
         val jsonInvalido = """
             {
               "nome": "",
@@ -84,6 +111,7 @@ class AplicacaoControllerTest {
 
         mockMvc.perform(
                 post("/aplicacoes")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonInvalido)
         )
@@ -94,7 +122,7 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve buscar aplicacao por id com sucesso`() {
+    fun `deve buscar aplicacao por id com sucesso sem autenticacao`() {
         val response = AplicacaoResponse(
                 id = 1L,
                 nome = "Sistema Acessível",
@@ -128,7 +156,7 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve listar aplicacoes com paginacao`() {
+    fun `deve listar aplicacoes com paginacao sem autenticacao`() {
         val response = PaginaResponse(
                 conteudo = listOf(
                         AplicacaoResponse(
@@ -169,7 +197,7 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve atualizar aplicacao com put`() {
+    fun `deve atualizar aplicacao com put quando autenticado`() {
         val request = AplicacaoRequest(
                 nome = "Portal Atualizado",
                 link = "https://www.portal-atualizado.com",
@@ -191,6 +219,7 @@ class AplicacaoControllerTest {
 
         mockMvc.perform(
                 put("/aplicacoes/1")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         )
@@ -201,7 +230,25 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve atualizar parcialmente aplicacao com patch`() {
+    fun `deve retornar proibido ao atualizar aplicacao com put sem autenticacao`() {
+        val request = AplicacaoRequest(
+                nome = "Portal Atualizado",
+                link = "https://www.portal-atualizado.com",
+                tipo = TipoAplicacao.WEB,
+                nivelAcessibilidade = 5,
+                observacoes = "Melhorou"
+        )
+
+        mockMvc.perform(
+                put("/aplicacoes/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        )
+                .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `deve atualizar parcialmente aplicacao com patch quando autenticado`() {
         val request = AplicacaoPatchRequest(
                 nivelAcessibilidade = 5,
                 observacoes = "Agora muito melhor"
@@ -220,6 +267,7 @@ class AplicacaoControllerTest {
 
         mockMvc.perform(
                 patch("/aplicacoes/1")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         )
@@ -230,9 +278,33 @@ class AplicacaoControllerTest {
     }
 
     @Test
-    fun `deve deletar aplicacao com sucesso`() {
-        mockMvc.perform(delete("/aplicacoes/1"))
+    fun `deve retornar proibido ao atualizar parcialmente sem autenticacao`() {
+        val request = AplicacaoPatchRequest(
+                nivelAcessibilidade = 5,
+                observacoes = "Agora muito melhor"
+        )
+
+        mockMvc.perform(
+                patch("/aplicacoes/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        )
+                .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `deve deletar aplicacao com sucesso quando autenticado`() {
+        mockMvc.perform(
+                delete("/aplicacoes/1")
+                        .with(user("admin").roles("ADMIN"))
+        )
                 .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `deve retornar proibido ao deletar aplicacao sem autenticacao`() {
+        mockMvc.perform(delete("/aplicacoes/1"))
+                .andExpect(status().isForbidden)
     }
 
     @Test
