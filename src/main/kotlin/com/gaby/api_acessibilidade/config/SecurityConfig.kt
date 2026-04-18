@@ -13,10 +13,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+@EnableConfigurationProperties(SecurityProperties::class)
+class SecurityConfig(
+        private val securityProperties: SecurityProperties
+) {
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -56,12 +60,14 @@ class SecurityConfig {
 
     @Bean
     fun userDetailsService(passwordEncoder: PasswordEncoder): UserDetailsService {
+
         val admin = User.builder()
-                .username("admin")
-                .password(passwordEncoder.encode("123456"))
+                .username(securityProperties.username)
+                .password(passwordEncoder.encode(securityProperties.password))
                 .roles("ADMIN")
                 .build()
 
         return InMemoryUserDetailsManager(admin)
     }
+
 }
