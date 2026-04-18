@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -34,6 +35,7 @@ class AplicacaoController(
             summary = "Cadastrar aplicação",
             description = "Cadastra uma nova aplicação com informações de acessibilidade"
     )
+    @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "201", description = "Aplicação cadastrada com sucesso"),
@@ -147,6 +149,7 @@ class AplicacaoController(
             summary = "Atualizar aplicação",
             description = "Atualiza completamente os dados de uma aplicação cadastrada"
     )
+    @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "200", description = "Aplicação atualizada com sucesso"),
@@ -179,6 +182,7 @@ class AplicacaoController(
             summary = "Atualizar parcialmente uma aplicação",
             description = "Atualiza apenas os campos informados de uma aplicação cadastrada"
     )
+    @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "200", description = "Aplicação atualizada parcialmente com sucesso"),
@@ -211,6 +215,7 @@ class AplicacaoController(
             summary = "Remover aplicação",
             description = "Remove uma aplicação cadastrada"
     )
+    @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(
             value = [
                 ApiResponse(responseCode = "204", description = "Aplicação removida com sucesso"),
