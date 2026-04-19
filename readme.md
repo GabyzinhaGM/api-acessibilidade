@@ -4,8 +4,8 @@ API REST desenvolvida em **Kotlin + Spring Boot** para cadastro e
 consulta de aplicações com diferentes níveis de acessibilidade.
 
 O objetivo do projeto é demonstrar uma arquitetura organizada de API,
-com boas práticas de desenvolvimento, documentação, validação de dados e
-cobertura de testes.
+com boas práticas de desenvolvimento, documentação, validação de dados,
+segurança com JWT e cobertura de testes.
 
 ------------------------------------------------------------------------
 
@@ -22,14 +22,18 @@ A API permite:
 -   Filtrar aplicações por tipo ou nível de acessibilidade
 -   Ordenar resultados
 -   Paginar resultados
+-   Autenticar usuário e gerar token JWT
+-   Proteger endpoints de escrita com autenticação
 
 ------------------------------------------------------------------------
 
 # Exemplo de uso
 
-Cadastro de aplicação:
+## Cadastro de aplicação
 
-``` json
+Requisição:
+
+```json
 {
   "nome": "Portal da Prefeitura",
   "link": "https://www.prefeitura.gov.br",
@@ -41,7 +45,7 @@ Cadastro de aplicação:
 
 Resposta:
 
-``` json
+```json
 {
   "id": 1,
   "nome": "Portal da Prefeitura",
@@ -54,6 +58,65 @@ Resposta:
 
 ------------------------------------------------------------------------
 
+# Autenticação
+
+A API utiliza **JWT (JSON Web Token)** para proteger os endpoints de
+escrita.
+
+## Login
+
+Endpoint:
+
+```http
+POST /auth/login
+```
+
+Requisição:
+
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+Resposta:
+
+```json
+{
+  "token": "seu-token-jwt"
+}
+```
+
+## Uso do token
+
+Após autenticar, envie o token no header das requisições protegidas:
+
+```http
+Authorization: Bearer seu-token-jwt
+```
+
+## Endpoints públicos
+
+Os endpoints abaixo podem ser acessados sem autenticação:
+
+-   `GET /aplicacoes`
+-   `GET /aplicacoes/{id}`
+-   `POST /auth/login`
+-   `/swagger-ui/**`
+-   `/v3/api-docs/**`
+
+## Endpoints protegidos
+
+Os endpoints abaixo exigem token JWT válido:
+
+-   `POST /aplicacoes`
+-   `PUT /aplicacoes/{id}`
+-   `PATCH /aplicacoes/{id}`
+-   `DELETE /aplicacoes/{id}`
+
+------------------------------------------------------------------------
+
 # Tecnologias utilizadas
 
 -   Kotlin
@@ -62,6 +125,8 @@ Resposta:
 -   Spring Data JPA
 -   Hibernate
 -   H2 Database
+-   Spring Security
+-   JWT
 -   Swagger / OpenAPI
 -   Gradle
 
@@ -70,6 +135,7 @@ Resposta:
 -   JUnit 5
 -   Mockito
 -   MockMvc
+-   Spring Security Test
 -   JaCoCo (cobertura de testes)
 
 ------------------------------------------------------------------------
@@ -78,38 +144,65 @@ Resposta:
 
 O projeto segue uma separação clara de responsabilidades.
 
-    controller
-        endpoints da API
+```text
+controller
+    endpoints da API
 
-    service
-        regras de negócio
+auth
+    autenticação e geração de token
 
-    repository
-        acesso a dados
+security
+    filtros e serviços de segurança JWT
 
-    entity
-        modelo persistido no banco
+service
+    regras de negócio
 
-    dto
-        objetos de requisição e resposta
+repository
+    acesso a dados
 
-    mapper
-        conversão entre DTO e entidade
+entity
+    modelo persistido no banco
 
-    exception
-        tratamento centralizado de erros
+dto
+    objetos de requisição e resposta
+
+mapper
+    conversão entre DTO e entidade
+
+exception
+    tratamento centralizado de erros
+
+config
+    configurações gerais, OpenAPI e segurança
+```
 
 Fluxo de execução:
 
-    Controller
-       ↓
-    Service
-       ↓
-    Mapper
-       ↓
-    Repository
-       ↓
-    Database
+```text
+Controller
+   ↓
+Service
+   ↓
+Mapper
+   ↓
+Repository
+   ↓
+Database
+```
+
+Fluxo de autenticação:
+
+```text
+Cliente
+   ↓
+AuthController
+   ↓
+AuthenticationManager
+   ↓
+JwtService
+   ↓
+Token JWT
+```
 
 ------------------------------------------------------------------------
 
@@ -121,6 +214,9 @@ A documentação interativa da API é gerada automaticamente com
 Após subir a aplicação, acesse:
 
 http://localhost:8080/swagger-ui/index.html
+
+A interface Swagger também permite informar o token JWT para testar
+os endpoints protegidos.
 
 ------------------------------------------------------------------------
 
@@ -135,58 +231,94 @@ http://localhost:8080/h2-console
 
 Configuração padrão:
 
-JDBC URL: jdbc:h2:mem:api_acessibilidade\
-User: sa\
-Password: (vazio)
+JDBC URL: `jdbc:h2:mem:api_acessibilidade`  
+User: `sa`  
+Password: `(vazio)`
+
+------------------------------------------------------------------------
+
+# Configuração de segurança
+
+As credenciais e propriedades do JWT estão configuradas no
+`application.yml`.
+
+Exemplo:
+
+```yaml
+app:
+  security:
+    username: admin
+    password: 123456
+    jwt-secret: minha-chave-super-secreta-com-no-minimo-32-bytes
+    jwt-expiration-ms: 3600000
+```
 
 ------------------------------------------------------------------------
 
 # Endpoints principais
 
+## Autenticação
+
+### Login
+
+```http
+POST /auth/login
+```
+
+------------------------------------------------------------------------
+
+## Aplicações
+
 ### Criar aplicação
 
+```http
 POST /aplicacoes
+```
 
 ### Listar aplicações
 
+```http
 GET /aplicacoes
+```
 
 Parâmetros disponíveis:
 
-page\
-size\
-sort\
-direction\
-tipo\
-nivelAcessibilidade
+-   `page`
+-   `size`
+-   `sort`
+-   `direction`
+-   `tipo`
+-   `nivelAcessibilidade`
 
 Exemplo:
 
+```http
 GET /aplicacoes?tipo=WEB&sort=nome&direction=asc&page=0&size=5
-
-------------------------------------------------------------------------
+```
 
 ### Buscar aplicação por ID
 
+```http
 GET /aplicacoes/{id}
-
-------------------------------------------------------------------------
+```
 
 ### Atualizar aplicação
 
+```http
 PUT /aplicacoes/{id}
-
-------------------------------------------------------------------------
+```
 
 ### Atualização parcial
 
+```http
 PATCH /aplicacoes/{id}
-
-------------------------------------------------------------------------
+```
 
 ### Deletar aplicação
 
+```http
 DELETE /aplicacoes/{id}
+```
 
 ------------------------------------------------------------------------
 
@@ -196,7 +328,7 @@ A API possui tratamento centralizado de exceções.
 
 Exemplo de resposta de erro:
 
-``` json
+```json
 {
   "timestamp": "2026-03-08T12:00:00",
   "status": 404,
@@ -205,6 +337,12 @@ Exemplo de resposta de erro:
   "caminho": "/aplicacoes/99"
 }
 ```
+
+Também podem ocorrer respostas relacionadas à autenticação e autorização,
+como:
+
+-   `401 Unauthorized`
+-   `403 Forbidden`
 
 ------------------------------------------------------------------------
 
@@ -226,10 +364,11 @@ Ferramentas:
 
 ### Testes de controller
 
-Testam endpoints e validações usando:
+Testam endpoints, validações e regras de acesso usando:
 
 -   MockMvc
 -   WebMvcTest
+-   Spring Security Test
 
 ------------------------------------------------------------------------
 
@@ -237,73 +376,72 @@ Testam endpoints e validações usando:
 
 Testam o fluxo completo da aplicação:
 
+```text
 Controller → Service → Repository → H2
+```
 
-Utilizando:
-
--   SpringBootTest
--   MockMvc
--   Banco H2 em memória
-
-------------------------------------------------------------------------
-
-# Cobertura de testes
-
-Cobertura gerada com **JaCoCo**.
-
-Para gerar o relatório:
-
-./gradlew test jacocoTestReport
-
-O relatório HTML será gerado em:
-
-build/reports/jacoco/test/html/index.html
+Incluindo cenários de autenticação e proteção de endpoints.
 
 ------------------------------------------------------------------------
 
 # Como executar o projeto
 
-Após clonar  o repositório:
+## Pré-requisitos
 
-Entre na pasta do projeto:
+-   Java 17
+-   Gradle
 
-cd api-acessibilidade
+## Executando localmente
 
-Execute a aplicação:
+```bash
+./gradlew bootRun
+```
 
-gradlew bootRun (Windows)
-
-./gradlew bootRun (Linux / Mac)
-
-A API estará disponível em:
+A aplicação ficará disponível em:
 
 http://localhost:8080
 
 ------------------------------------------------------------------------
 
-# Executar testes
+# Cobertura de testes
 
-Para rodar os testes:
+O projeto gera relatório de cobertura com **JaCoCo**.
 
-gradlew test (Windows)
+Para rodar os testes com relatório:
 
-./gradlew test (Linux / Mac)
+```bash
+./gradlew clean test jacocoTestReport
+```
 
-------------------------------------------------------------------------
+Relatório HTML gerado em:
 
-# Melhorias futuras
-
-Possíveis evoluções do projeto:
-
--   Autenticação com Spring Security
--   Integração com banco PostgreSQL
--   Deploy em container Docker
--   Pipeline CI/CD
--   Cache com Redis
+```text
+build/reports/jacoco/test/html/index.html
+```
 
 ------------------------------------------------------------------------
 
-# Autor
+# Objetivo do projeto
 
-Projeto desenvolvido por Gabriela Godoy Marques, como estudo de arquitetura de APIs REST utilizando
-**Kotlin + Spring Boot**.
+Este projeto foi desenvolvido como parte de um portfólio backend com foco
+em:
+
+-   construção de APIs REST bem estruturadas
+-   boas práticas com Kotlin e Spring Boot
+-   validação e tratamento de erros
+-   documentação com OpenAPI
+-   autenticação e autorização com JWT
+-   testes automatizados
+-   organização arquitetural para evolução futura
+
+------------------------------------------------------------------------
+
+# Próximas evoluções
+
+Evoluções planejadas para versões futuras:
+
+-   persistência de usuários no banco de dados
+-   substituição do usuário hardcoded por autenticação baseada em entidade
+-   externalização de secrets e credenciais
+-   migração para banco relacional persistente
+-   versionamento e deploy da aplicação
