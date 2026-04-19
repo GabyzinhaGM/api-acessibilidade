@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:api_acessibilidade_test
+    url: jdbc:h2:mem:api_acessibilidade_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -8,6 +8,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    open-in-view: false
     show-sql: false
     properties:
       hibernate:
@@ -16,3 +17,14 @@ spring:
   h2:
     console:
       enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
+
+app:
+  security:
+    username: admin
+    password: 123456
+    jwt-secret: chave-de-teste-super-secreta-com-32-bytes!!
+    jwt-expiration-ms: 3600000
