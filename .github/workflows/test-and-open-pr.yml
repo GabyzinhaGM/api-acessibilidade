@@ -6,6 +6,11 @@ on:
       - develop
       - 'feat/**'
       - 'fix/**'
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -17,6 +22,7 @@ concurrency:
 
 jobs:
   test-and-route:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -100,7 +106,7 @@ jobs:
         run: |
           git fetch --all --tags --prune
 
-      - name: Descobrir última versão
+      - name: Descobrir última versão publicada
         if: steps.source.outputs.branch == 'develop'
         id: last_version
         shell: bash
@@ -140,6 +146,13 @@ jobs:
 
           echo "level=$BUMP" >> "$GITHUB_OUTPUT"
 
+      - name: Encerrar sem criar release quando não houver bump
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level == 'none'
+        shell: bash
+        run: |
+          echo "Nenhum commit versionável encontrado desde a última tag publicada."
+          echo "Nada a publicar."
+
       - name: Calcular próxima versão
         if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
         id: next_version
@@ -167,34 +180,31 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "branch=$RELEASE_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Encerrar sem criar release quando não houver bump
-        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level == 'none'
-        shell: bash
-        run: |
-          echo "Nenhum commit versionável encontrado desde a última release."
-          echo "Nada a publicar."
-
-      - name: Criar tag local da próxima versão
+      - name: Verificar se branch de release já existe no remoto
         if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
-        shell: bash
-        run: |
-          git tag "${{ steps.next_version.outputs.version }}" || true
-
-      - name: Criar branch release automaticamente
-        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        id: release_branch
         env:
           RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
         shell: bash
         run: |
           if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "A branch $RELEASE_BRANCH já existe no remoto."
           else
-            git checkout develop
-            git pull origin develop
-            git checkout -b "$RELEASE_BRANCH"
-            git push origin "$RELEASE_BRANCH"
-            echo "Branch $RELEASE_BRANCH criada com sucesso."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Criar branch release automaticamente
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none' && steps.release_branch.outputs.exists == 'false'
+        env:
+          RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
+        shell: bash
+        run: |
+          git checkout develop
+          git pull origin develop
+          git checkout -b "$RELEASE_BRANCH"
+          git push origin "$RELEASE_BRANCH"
+          echo "Branch $RELEASE_BRANCH criada com sucesso."
 
       - name: Verificar PR existente da release para main
         if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
@@ -218,8 +228,28 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verificar se release possui diferença em relação à main
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none'
+        id: release_diff
+        env:
+          RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
+        shell: bash
+        run: |
+          git fetch origin main "$RELEASE_BRANCH" --prune
+
+          AHEAD_COUNT=$(git rev-list --count "origin/main..origin/$RELEASE_BRANCH")
+          echo "ahead_count=$AHEAD_COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$AHEAD_COUNT" -gt 0 ]; then
+            echo "has_diff=true" >> "$GITHUB_OUTPUT"
+            echo "Há diferenças entre $RELEASE_BRANCH e main."
+          else
+            echo "has_diff=false" >> "$GITHUB_OUTPUT"
+            echo "Não há diferenças entre $RELEASE_BRANCH e main."
+          fi
+
       - name: Abrir PR da release para main
-        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none' && steps.release_pr.outputs.exists == 'false'
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none' && steps.release_pr.outputs.exists == 'false' && steps.release_diff.outputs.has_diff == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_BRANCH: ${{ steps.next_version.outputs.branch }}
@@ -254,3 +284,70 @@ jobs:
           Commit de origem: \`${{ github.sha }}\`
           EOF
           )"
+
+      - name: Informar ausência de diferenças para release
+        if: steps.source.outputs.branch == 'develop' && steps.bump.outputs.level != 'none' && steps.release_diff.outputs.has_diff == 'false'
+        shell: bash
+        run: |
+          echo "Nenhuma diferença entre a release e a main. PR não será criado."
+
+  tag-release-on-main:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Buscar tags remotas
+        shell: bash
+        run: |
+          git fetch --all --tags --prune
+
+      - name: Extrair versão da branch de release
+        id: release_info
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          VERSION="${HEAD_REF#release/}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versão identificada: $VERSION"
+
+      - name: Verificar se tag já existe
+        id: tag_check
+        env:
+          VERSION: ${{ steps.release_info.outputs.version }}
+        shell: bash
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "A tag $VERSION já existe."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Criar e publicar tag da release
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.release_info.outputs.version }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout main
+          git pull origin main
+
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+          echo "Tag $VERSION publicada com sucesso."
+
+      - name: Informar que a tag já existia
+        if: steps.tag_check.outputs.exists == 'true'
+        shell: bash
+        run: |
+          echo "A tag da release já existia. Nada a fazer."
