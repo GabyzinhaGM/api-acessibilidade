@@ -29,3 +29,10 @@ logging:
   level:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
+
+app:
+  security:
+    username: admin
+    password: 123456
+    jwt-secret: minha-chave-super-secreta-com-no-minimo-32-bytes
+    jwt-expiration-ms: 3600000
